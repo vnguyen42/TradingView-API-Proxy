@@ -253,78 +253,81 @@ module.exports = {
    * @returns {Promise<PineIndicator>} Indicator
    */
   async getIndicator(id, version = 'last') {
-    const indicID = id.replace(/ |%/g, '%25');
+    return new Promise(async (resolve, reject) => {
+      const indicID = id.replace(/ |%/g, '%25');
 
-    let { data } = await request({
-      host: 'pine-facade.tradingview.com',
-      path: `/pine-facade/translate/${indicID}/${version}`,
-    }, true);
+      let {data} = await request({
+        host: 'pine-facade.tradingview.com',
+        path: `/pine-facade/translate/${indicID}/${version}`,
+      }, true);
 
-    try {
-      data = JSON.parse(data);
-    } catch (e) {
-      throw new Error(`Inexistent or unsupported indicator: '${id}'`);
-    }
+      try {
+        data = JSON.parse(data);
+        //console.log("Debug : data", data.result.metaInfo.inputs);
+      } catch (e) {
+        return reject(`Inexistent or unsupported indicator: '${id}'`);
+      }
 
-    if (!data.success || !data.result.metaInfo || !data.result.metaInfo.inputs) {
-      throw new Error(`Inexistent or unsupported indicator: "${data.reason}"`);
-    }
+      if (!data.success || !data.result.metaInfo || !data.result.metaInfo.inputs) {
+        return reject(`Inexistent or unsupported indicator: "${data.reason}"`);
+      }
 
-    const inputs = {};
+      const inputs = {};
 
-    data.result.metaInfo.inputs.forEach((input) => {
-      if (['text', 'pineId', 'pineVersion'].includes(input.id)) return;
+      data.result.metaInfo.inputs.forEach((input) => {
+        if (['text', 'pineId', 'pineVersion'].includes(input.id)) return;
 
-      const inlineName = input.name.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+        const inlineName = input.name.replace(/ /g, '_').replace(/[^a-zA-Z0-9_]/g, '');
 
-      inputs[input.id] = {
-        name: input.name,
-        inline: input.inline || inlineName,
-        internalID: input.internalID || inlineName,
-        tooltip: input.tooltip,
+        inputs[input.id] = {
+          name: input.name,
+          inline: input.inline || inlineName,
+          internalID: input.internalID || inlineName,
+          tooltip: input.tooltip,
 
-        type: input.type,
-        value: input.defval,
-        isHidden: !!input.isHidden,
-        isFake: !!input.isFake,
-      };
+          type: input.type,
+          value: input.defval,
+          isHidden: !!input.isHidden,
+          isFake: !!input.isFake,
+        };
 
-      if (input.options) inputs[input.id].options = input.options;
-    });
+        if (input.options) inputs[input.id].options = input.options;
+      });
 
-    const plots = {};
+      const plots = {};
 
-    Object.keys(data.result.metaInfo.styles).forEach((plotId) => {
-      const plotTitle = data
-        .result
-        .metaInfo
-        .styles[plotId]
-        .title
-        .replace(/ /g, '_')
-        .replace(/[^a-zA-Z0-9_]/g, '');
+      Object.keys(data.result.metaInfo.styles).forEach((plotId) => {
+        const plotTitle = data
+            .result
+            .metaInfo
+            .styles[plotId]
+            .title
+            .replace(/ /g, '_')
+            .replace(/[^a-zA-Z0-9_]/g, '');
 
-      const titles = Object.values(plots);
+        const titles = Object.values(plots);
 
-      if (titles.includes(plotTitle)) {
-        let i = 2;
-        while (titles.includes(`${plotTitle}_${i}`)) i += 1;
-        plots[plotId] = `${plotTitle}_${i}`;
-      } else plots[plotId] = plotTitle;
-    });
+        if (titles.includes(plotTitle)) {
+          let i = 2;
+          while (titles.includes(`${plotTitle}_${i}`)) i += 1;
+          plots[plotId] = `${plotTitle}_${i}`;
+        } else plots[plotId] = plotTitle;
+      });
 
-    data.result.metaInfo.plots.forEach((plot) => {
-      if (!plot.target) return;
-      plots[plot.id] = `${plots[plot.target] ?? plot.target}_${plot.type}`;
-    });
+      data.result.metaInfo.plots.forEach((plot) => {
+        if (!plot.target) return;
+        plots[plot.id] = `${plots[plot.target] ?? plot.target}_${plot.type}`;
+      });
 
-    return new PineIndicator({
-      pineId: data.result.metaInfo.scriptIdPart || indicID,
-      pineVersion: data.result.metaInfo.pine.version || version,
-      description: data.result.metaInfo.description,
-      shortDescription: data.result.metaInfo.shortDescription,
-      inputs,
-      plots,
-      script: data.result.ilTemplate,
+      return resolve(new PineIndicator({
+        pineId: data.result.metaInfo.scriptIdPart || indicID,
+        pineVersion: data.result.metaInfo.pine.version || version,
+        description: data.result.metaInfo.description,
+        shortDescription: data.result.metaInfo.shortDescription,
+        inputs,
+        plots,
+        script: data.result.ilTemplate,
+      }));
     });
   },
 
@@ -392,7 +395,14 @@ module.exports = {
       privateChannel: data.user.private_channel,
       authToken: data.user.auth_token,
       joinDate: new Date(data.user.date_joined),
+      _cookie: cookie
     };
+  },
+  
+  async setSession(_session, _cookie) {
+    if(!_session || !_cookie) throw new Error("Session or cookie not provided");
+    const session = _session;
+    const cookie = _cookie;
   },
 
   /**
