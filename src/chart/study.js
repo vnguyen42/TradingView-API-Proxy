@@ -200,8 +200,13 @@ module.exports = (chartSession) => class ChartStudy {
     return this.#strategyReport;
   }
 
+  get id() {
+    return this.#studID;
+  }
+
   #callbacks = {
     studyCompleted: [],
+    du: [],
     update: [],
 
     event: [],
@@ -219,7 +224,9 @@ module.exports = (chartSession) => class ChartStudy {
 
   #handleError(...msgs) {
     if (this.#callbacks.error.length === 0) console.error(...msgs);
-    else this.#handleEvent('error', ...msgs);
+    else {
+      this.#handleEvent('error', ...msgs);
+    }
   }
 
   /**
@@ -243,6 +250,7 @@ module.exports = (chartSession) => class ChartStudy {
       }
 
       if (['timescale_update', 'du'].includes(packet.type)) {
+        this.#handleEvent('du');
         const changes = [];
         const data = packet.data[1][this.#studID];
 
@@ -398,11 +406,14 @@ module.exports = (chartSession) => class ChartStudy {
     this.#callbacks.studyCompleted.push(cb);
   }
 
+  onTimescaleUpdate(cb) {
+    this.#callbacks.du.push(cb);
+  }
+
   /**
    * @typedef {'plots' | 'report.currency'
    *  | 'report.settings' | 'report.perf'
    *  | 'report.trades' | 'report.history'
-   *  | 'graphic'
    * } UpdateChangeType
    */
 
@@ -413,6 +424,14 @@ module.exports = (chartSession) => class ChartStudy {
    */
   onUpdate(cb) {
     this.#callbacks.update.push(cb);
+  }
+
+  cleanOnUpdateLastCallback() {
+    this.#callbacks.update.pop();
+  }
+
+  cleanOnDuLastCallback() {
+    this.#callbacks.du.pop();
   }
 
   /**
@@ -426,6 +445,7 @@ module.exports = (chartSession) => class ChartStudy {
 
   /** Remove the study */
   remove() {
+    if(!this.#studID || !this.#studyListeners[this.#studID]) return;
     chartSession.send('remove_study', [
       chartSession.sessionID,
       this.#studID,

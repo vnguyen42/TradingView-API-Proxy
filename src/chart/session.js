@@ -471,6 +471,10 @@ module.exports = (client) => class ChartSession {
     this.#callbacks.symbolLoaded.push(cb);
   }
 
+  cleanOnSymbolLoadedCallbacks() {
+    this.#callbacks.symbolLoaded = [];
+  }
+
   /**
    * When a chart update happens
    * @param {(changes: ('$prices' | string)[]) => void} cb
@@ -528,6 +532,12 @@ module.exports = (client) => class ChartSession {
     this.#callbacks.error.push(cb);
   }
 
+  isErrorHandled() {
+    if (this.#callbacks.error.length === 0)
+        return false;
+    return true;
+  }
+
   /** @type {ChartSessionBridge} */
   #chartSession = {
     sessionID: this.#chartSessionID,
@@ -538,8 +548,14 @@ module.exports = (client) => class ChartSession {
 
   Study = studyConstructor(this.#chartSession);
 
+  isDeleted() {
+    return !this.#client.sessions[this.#chartSessionID];
+  }
+
   /** Delete the chart session */
   delete() {
+    // Ignore if already deleted
+    if (!this.#client.sessions[this.#chartSessionID]) return;
     if (this.#replayMode) this.#client.send('replay_delete_session', [this.#replaySessionID]);
     this.#client.send('chart_delete_session', [this.#chartSessionID]);
     delete this.#client.sessions[this.#chartSessionID];

@@ -2,9 +2,13 @@ const WebSocket = require('ws');
 
 const misc = require('./miscRequests');
 const protocol = require('./protocol');
+const { v4: uuidv4 } = require('uuid');
 
 const quoteSessionGenerator = require('./quote/session');
 const chartSessionGenerator = require('./chart/session');
+
+var url = require('url');
+var HttpsProxyAgent = require('https-proxy-agent');
 
 /**
  * @typedef {Object} Session
@@ -39,6 +43,8 @@ module.exports = class Client {
   #ws;
 
   #logged = false;
+  #proxy = null;
+  #id = null;
 
   /** If the client is logged in */
   get isLogged() {
@@ -48,6 +54,10 @@ module.exports = class Client {
   /** If the cient was closed */
   get isOpen() {
     return this.#ws.readyState === this.#ws.OPEN;
+  }
+
+  get id() {
+    return this.#id;
   }
 
   /** @type {SessionList} */
@@ -225,9 +235,25 @@ module.exports = class Client {
     if (clientOptions.DEBUG) global.TW_DEBUG = clientOptions.DEBUG;
 
     const server = clientOptions.server || 'data';
-    this.#ws = new WebSocket(`wss://${server}.tradingview.com/socket.io/websocket?&type=chart`, {
-      origin: 'https://s.tradingview.com',
-    });
+
+    // Vincent : Proxy handling
+    if(clientOptions.proxy) {
+      var options = url.parse(clientOptions.proxy);
+      var agent = new HttpsProxyAgent(options);
+      console.log("Proxy: " + clientOptions.proxy);
+      this.#ws = new WebSocket(`wss://${server}.tradingview.com/socket.io/websocket?&type=chart`, {
+        origin: 'https://s.tradingview.com',
+        agent: agent,
+      });
+    }
+    else {
+      this.#ws = new WebSocket(`wss://${server}.tradingview.com/socket.io/websocket?&type=chart`, {
+        origin: 'https://s.tradingview.com',
+      });
+    }
+
+    // Generate unique ID for this client
+    this.#id = uuidv4();
 
     if (clientOptions.token) {
       misc.getUser(clientOptions.token).then((user) => {
