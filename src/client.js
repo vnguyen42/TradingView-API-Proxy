@@ -239,8 +239,7 @@ module.exports = class Client {
 
     // Vincent : Proxy handling
     if(clientOptions.proxy) {
-      var options = url.parse(clientOptions.proxy);
-      var agent = new HttpsProxyAgent(options);
+      var agent = new HttpsProxyAgent.HttpsProxyAgent(clientOptions.proxy);
       console.log("Proxy: " + clientOptions.proxy);
       this.#ws = new WebSocket(`wss://${server}.tradingview.com/socket.io/websocket?&type=chart`, {
         origin: 'https://s.tradingview.com',

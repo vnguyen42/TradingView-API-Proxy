@@ -26,10 +26,12 @@
   "author": "Mathieu Colmon",
   "license": "ISC",
   "dependencies": {
+    "https-proxy-agent": "^7.0.2",
     "jszip": "^3.7.1",
     "ws": "^7.4.3"
   },
   "devDependencies": {
+    "https-proxy-agent": "^7.0.2",
     "@babel/eslint-parser": "^7.15.7",
     "@mathieuc/console": "^1.0.1",
     "eslint": "^7.25.0",
