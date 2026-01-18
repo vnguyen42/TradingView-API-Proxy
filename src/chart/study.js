@@ -335,14 +335,23 @@ module.exports = (chartSession) => class ChartStudy {
               changes.push('report.trades');
             }
 
-            if (report.equity) {
+            const hasHistory = [
+              'buyHold',
+              'buyHoldPercent',
+              'drawDown',
+              'drawDownPercent',
+              'equity',
+              'equityPercent',
+            ].some((key) => report[key] !== undefined);
+            if (hasHistory) {
+              const prevHistory = this.#strategyReport.history || {};
               this.#strategyReport.history = {
-                buyHold: report.buyHold,
-                buyHoldPercent: report.buyHoldPercent,
-                drawDown: report.drawDown,
-                drawDownPercent: report.drawDownPercent,
-                equity: report.equity,
-                equityPercent: report.equityPercent,
+                buyHold: report.buyHold ?? prevHistory.buyHold,
+                buyHoldPercent: report.buyHoldPercent ?? prevHistory.buyHoldPercent,
+                drawDown: report.drawDown ?? prevHistory.drawDown,
+                drawDownPercent: report.drawDownPercent ?? prevHistory.drawDownPercent,
+                equity: report.equity ?? prevHistory.equity,
+                equityPercent: report.equityPercent ?? prevHistory.equityPercent,
               };
               changes.push('report.history');
             }
