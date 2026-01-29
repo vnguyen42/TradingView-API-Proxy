@@ -265,6 +265,7 @@ module.exports = class Client {
         this.#logged = true;
         this.sendQueue();
       }).catch((err) => {
+        this.authError = err;
         this.#handleError('Credentials error:', err.message);
       });
     } else {

@@ -9,6 +9,8 @@ const PineIndicator = require('./classes/PineIndicator');
 const indicators = ['Recommend.Other', 'Recommend.All', 'Recommend.MA'];
 const builtInIndicList = [];
 const validateStatus = (status) => status < 500;
+const DEFAULT_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36';
 
 async function fetchScanData(tickers = [], type = '', columns = []) {
   let { data } = await request({
@@ -421,11 +423,22 @@ module.exports = {
   async getUser(session, signature = '', location = 'https://www.tradingview.com/') {
     return new Promise((cb, err) => {
       https.get(location, {
-        headers: { cookie: `sessionid=${session}${signature ? `;sessionid_sign=${signature};` : ''}` },
+        headers: {
+          cookie: `sessionid=${session}${signature ? `;sessionid_sign=${signature};` : ''}`,
+          'User-Agent': DEFAULT_USER_AGENT,
+          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'accept-language': 'en-US,en;q=0.9',
+        },
       }, (res) => {
         let rs = '';
         res.on('data', (d) => { rs += d; });
         res.on('end', async () => {
+          if (res.statusCode === 403) {
+            const e = new Error('HTTP 403');
+            e.statusCode = 403;
+            err(e);
+            return;
+          }
           if (res.headers.location && location !== res.headers.location) {
             cb(await module.exports.getUser(session, signature, res.headers.location));
             return;
