@@ -358,7 +358,17 @@ module.exports = (chartSession) => class ChartStudy {
           };
 
           if (parsed.dataCompressed) {
-            updateStrategyReport((await parseCompressed(parsed.dataCompressed)).report);
+            try {
+              const compressedData = await parseCompressed(parsed.dataCompressed);
+              if (compressedData && compressedData.report) {
+                updateStrategyReport(compressedData.report);
+              }
+            } catch (error) {
+              console.warn(
+                'Unable to parse compressed TradingView strategy report:',
+                error && error.message ? error.message : error,
+              );
+            }
           }
 
           if (parsed.data && parsed.data.report) updateStrategyReport(parsed.data.report);

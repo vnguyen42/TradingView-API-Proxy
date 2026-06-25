@@ -180,6 +180,28 @@ module.exports = (client) => class ChartSession {
     else this.#handleEvent('error', ...msgs);
   }
 
+  #handleStudyListenerError(error) {
+    try {
+      this.#handleError('Study listener error:', error);
+    } catch (handlerError) {
+      console.error('Study listener error handler failed:', handlerError);
+    }
+  }
+
+  #handleStudyPacket(studyID, packet) {
+    const listener = this.#studyListeners[studyID];
+    if (!listener) return;
+
+    try {
+      const result = listener(packet);
+      if (result && typeof result.catch === 'function') {
+        result.catch((error) => this.#handleStudyListenerError(error));
+      }
+    } catch (error) {
+      this.#handleStudyListenerError(error);
+    }
+  }
+
   constructor() {
     this.#client.sessions[this.#chartSessionID] = {
       type: 'chart',
@@ -187,7 +209,7 @@ module.exports = (client) => class ChartSession {
         if (global.TW_DEBUG) console.log('§90§30§106 CHART SESSION §0 DATA', packet);
 
         if (typeof packet.data[1] === 'string' && this.#studyListeners[packet.data[1]]) {
-          this.#studyListeners[packet.data[1]](packet);
+          this.#handleStudyPacket(packet.data[1], packet);
           return;
         }
 
@@ -225,7 +247,7 @@ module.exports = (client) => class ChartSession {
               return;
             }
 
-            if (this.#studyListeners[k]) this.#studyListeners[k](packet);
+            if (this.#studyListeners[k]) this.#handleStudyPacket(k, packet);
           });
 
           this.#handleEvent('update', changes);
