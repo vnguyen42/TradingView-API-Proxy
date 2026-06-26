@@ -1,5 +1,5 @@
 const { genSessionID } = require('../utils');
-const { parseCompressed } = require('../protocol');
+const { parseCompressed, describeCompressedPayload } = require('../protocol');
 const graphicParser = require('./graphicParser');
 
 const PineIndicator = require('../classes/PineIndicator');
@@ -195,9 +195,15 @@ module.exports = (chartSession) => class ChartStudy {
     performance: {},
   };
 
+  #compressedReportParseError = null;
+
   /** @return {StrategyReport} Get the strategy report if available */
   get strategyReport() {
     return this.#strategyReport;
+  }
+
+  get compressedReportParseError() {
+    return this.#compressedReportParseError;
   }
 
   get id() {
@@ -360,13 +366,18 @@ module.exports = (chartSession) => class ChartStudy {
           if (parsed.dataCompressed) {
             try {
               const compressedData = await parseCompressed(parsed.dataCompressed);
+              this.#compressedReportParseError = null;
               if (compressedData && compressedData.report) {
                 updateStrategyReport(compressedData.report);
               }
             } catch (error) {
+              this.#compressedReportParseError = {
+                message: error && error.message ? error.message : String(error),
+                payload: describeCompressedPayload(parsed.dataCompressed),
+              };
               console.warn(
                 'Unable to parse compressed TradingView strategy report:',
-                error && error.message ? error.message : error,
+                this.#compressedReportParseError,
               );
             }
           }
