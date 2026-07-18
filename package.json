@@ -28,7 +28,7 @@
   "dependencies": {
     "https-proxy-agent": "^7.0.2",
     "jszip": "^3.7.1",
-    "uuid": "^14.0.1",
+    "uuid": "^9.0.1",
     "ws": "^7.4.3"
   },
   "devDependencies": {
