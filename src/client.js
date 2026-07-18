@@ -42,6 +42,9 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 module.exports = class Client {
   #ws;
 
+  /** @type {import('https-proxy-agent').HttpsProxyAgent | null} */
+  #proxyAgent = null;
+
   #logged = false;
   #proxy = null;
   #id = null;
@@ -240,11 +243,11 @@ module.exports = class Client {
     // Vincent : Proxy handling
     if(clientOptions.proxy) {
       var options = url.parse(clientOptions.proxy);
-      var agent = new HttpsProxyAgent(clientOptions.proxy);
+      this.#proxyAgent = new HttpsProxyAgent(clientOptions.proxy);
       console.log("Proxy: " + clientOptions.proxy);
       this.#ws = new WebSocket(`wss://${server}.tradingview.com/socket.io/websocket?&type=chart`, {
         origin: 'https://s.tradingview.com',
-        agent: agent,
+        agent: this.#proxyAgent,
       });
     }
     else {
@@ -287,6 +290,15 @@ module.exports = class Client {
       this.#handleEvent('disconnected');
     });
 
+    // Without this listener, a websocket failure (e.g. 'Unexpected server
+    // response: 502' from a proxy during the handshake) is an unhandled
+    // 'error' event and CRASHES the whole process. Route it through the
+    // normal error callbacks so consumers can retry.
+    this.#ws.on('error', (err) => {
+      this.#logged = false;
+      this.#handleError('WebSocket error:', err && err.message ? err.message : String(err));
+    });
+
     this.#ws.on('message', (data) => this.#parsePacket(data));
   }
 
@@ -308,7 +320,19 @@ module.exports = class Client {
    */
   end() {
     return new Promise((cb) => {
-      if (this.#ws.readyState) this.#ws.close();
+      // terminate() (not close()) also aborts sockets still CONNECTING —
+      // readyState CONNECTING is 0, so the old `if (readyState) close()`
+      // silently skipped them and the orphaned socket kept a proxy session
+      // occupied. Destroying the proxy agent releases its socket pool.
+      try {
+        this.#ws.terminate();
+      } catch (e) { /* already dead */ }
+      if (this.#proxyAgent) {
+        try {
+          this.#proxyAgent.destroy();
+        } catch (e) { /* already destroyed */ }
+        this.#proxyAgent = null;
+      }
       cb();
     });
   }
