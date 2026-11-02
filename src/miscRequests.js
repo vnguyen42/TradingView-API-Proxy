@@ -275,6 +275,20 @@ module.exports = {
         return reject(`Inexistent or unsupported indicator: "${data.reason}"`);
       }
 
+      // TradingView moved the compiled script (ILScript, "bmI9Ks46_" prefix) out of `result.ilTemplate` on
+      // 2026-10-27: first into the hidden `text` input's defval, then into `metaInfo.defaults.inputs.text`. An empty
+      // script makes every study fail with "Can't parse pine" (upstream Mathieu2301/TradingView-API#355).
+      const textInput = data.result.metaInfo.inputs.find((input) => input.id === 'text');
+      const script = [
+        data.result.ilTemplate,
+        textInput && textInput.defval,
+        data.result.metaInfo.defaults && data.result.metaInfo.defaults.inputs
+          && data.result.metaInfo.defaults.inputs.text,
+      ].find((value) => typeof value === 'string' && value.startsWith('bmI9Ks46_'));
+      if (!script) {
+        return reject(`No compiled script for indicator '${id}' (pine-facade translate changed shape)`);
+      }
+
       const inputs = {};
 
       data.result.metaInfo.inputs.forEach((input) => {
@@ -329,7 +343,7 @@ module.exports = {
         shortDescription: data.result.metaInfo.shortDescription,
         inputs,
         plots,
-        script: data.result.ilTemplate,
+        script,
       }));
     });
   },
