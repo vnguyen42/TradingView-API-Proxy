@@ -256,13 +256,21 @@ module.exports = {
    * @returns {Promise<PineIndicator>} Indicator
    */
   async getIndicator(id, version = 'last') {
-    return new Promise(async (resolve, reject) => {
+    // The body runs in an async function whose failures go to reject: thrown inside a bare async executor, they
+    // became unhandled rejections that killed the caller's process (DNS failure on pine-facade, 2026-11-05).
+    return new Promise((resolve, reject) => (async () => {
       const indicID = id.replace(/ |%/g, '%25');
 
-      let {data} = await request({
-        host: 'pine-facade.tradingview.com',
-        path: `/pine-facade/translate/${indicID}/${version}`,
-      }, true);
+      // A network failure gets a message that names the indicator.
+      let data;
+      try {
+        ({ data } = await request({
+          host: 'pine-facade.tradingview.com',
+          path: `/pine-facade/translate/${indicID}/${version}`,
+        }, true));
+      } catch (err) {
+        return reject(new Error(`pine-facade request failed for '${id}': ${err.code || err.message || err}`));
+      }
 
       try {
         data = JSON.parse(data);
@@ -345,7 +353,7 @@ module.exports = {
         plots,
         script,
       }));
-    });
+    })().catch(reject));
   },
 
   /**
